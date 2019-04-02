@@ -1,0 +1,130 @@
+def zeros(j,k): #replicate the zeros function from MATLAB with a list in list structure
+    matrx = list()
+    for position2 in range(0,j):
+        row = list()
+        for position in range (0,k):
+            row.append(0)
+        matrx.append(row)
+    return matrx
+
+def printITER(ITER): #debugging function 
+    for row in ITER:
+        print(row)
+import math
+from math import sqrt
+
+T_t=0.62395 # T_t (mm) --original value
+T_w=3.30233 # T_w (mm)--original value
+mu_1=0.00089 #  dynamic viscosity of water at 25 degrees Celsius (Pa*s)
+rho_1=997 # liquid density (kg/m**3)
+rho_2=1.1839 # gas density (kg/ m**3)
+sigma=0.07199 # surface tension of water (N/m)
+
+a=0.00000089267 # kinematic viscosity of water at 25 degrees Celsius (m**2/s)
+b=0.001187462 # ratio of Gas/Liquid Density
+d=sigma # Surface Tension of Water at 25 degrees Celsius (N/m)
+E=rho_1 # Density of Water at 25 degrees Celsius (kg/m**3)
+
+num = int(input('Enter the number of iterations: '))
+pressure = float(input('Enter the spray pressure (psi): '))
+b_l = float(input('Enter the assumed break-up length (mm): '))
+
+V=1.3*math.sqrt(pressure*6.89476)
+
+for i in range(1,num+1):
+    print("Iteration:  \n", i)
+    print("Velocity: \n", round(V,3), "m/s")
+    
+    beta=(1.57e-11)*(pressure**4)+(-2.769e-8)*(pressure**3)+(-8.507e-6)*(pressure**2)+(0.0267011)*(pressure)+32.555499; 
+    h=(T_w*T_t)/(4*b_l*math.tan(math.radians(beta/2))+2*T_w);
+    h=h/1000 #converts mm to m
+     
+    We_g=rho_2*V**2*h/sigma;
+    
+    print("Gas Weber Number: \n", We_g)
+    
+    c=V #redefinition for sake of clarity
+    
+    if We_g >= 27/16:
+        print('Sheet Break-Up is SHORT-WAVE-dominated\n')
+        low_bound = 0.0001*E*(b)*(c**2)/d
+        up_bound=9999*low_bound
+        
+        ITER=zeros(30,6);
+        K_s=0;
+        O_s=0;
+        for k in range(0,40): #number of segments
+            for j in range (0,30): #number of iterations
+                segment_width = (up_bound-low_bound)/30
+                ITER[j][1]=j-1 #sets the segment number
+                ITER[j][2]=segment_width*ITER[j][1]+low_bound #wave number for each segment
+                
+                x=ITER[j][2] #redefinition for sake of clarity
+                ITER[j][3]= -2*a*(x**2)+math.sqrt(4*(a**2)*(x**4)+b*(c**2)*(x**2)-(d*(x**3)/E)) #calculates y for each segment position
+                
+                y_prime_a=-4*a*x
+                y_prime_b=16*(a**2)*(x**3)+2*b*(c**2)*x-(3*d*(x**2)/E)
+                y_prime_c=2*math.sqrt(4*(a**2)*(x**4)+b*(c**2)*(x**2)-(d*(x**3)/E))
+                ITER[j][4]=y_prime_a+(y_prime_b/y_prime_c)
+                
+                if ITER[j][4] >= 0:
+                    ITER[j][5] = 1
+                else:
+                    ITER[j][5] = 0
+                
+                if j-1>0:
+                    if (ITER[j-1][5]==0 and ITER[j][5] == 1) or (ITER[j-1][5]== 1 and ITER[j][5] == 0):
+                        low_bound = ITER[j-1][2]
+                        up_bound = ITER[j][2]
+                        K_s = (ITER[j-1][2] + ITER[j][2])/2
+                        O_s = (ITER[j-1][3] + ITER[j][3])/2
+        d_l = math.sqrt(16*h/K_s) #calculates ligament diameter for short-wave case
+        d_d=(1e6)*1.88*d_l*(1+3*(mu_1/(rho_1*sigma*d_l)**(0.5)))**(1/6) #calculates droplet diameter in mictrons
+        print('The maximum wave number is: \n',round(K_s,3))
+        print('The maximum wave growth rate is: \n',round(O_s),3)
+        print('The break-up length for this spray is: \n', round(b_l,3), "mm");
+        print('The predicted droplet size for this spray is: \n', round(d_d,3), "microns")
+        
+        b_l=(12*V/O_s)*1000 #updates the break-up length for the next iteration
+        
+    else: 
+        print('Sheet Break-Up is LONG-WAVE-dominated\n')
+        low_bound = 0.0001*E*(b)*(c**2)/d
+        up_bound=9999*low_bound
+        
+        ITER=zeros(60,6);
+        K_s=0;
+        O_s=0;
+        for k in range(0,40): #number of segments
+            for j in range (0,60): #number of iterations
+                segment_width = (up_bound-low_bound)/30
+                ITER[j][1]=j #sets the segment number
+                ITER[j][2]=segment_width*ITER[j][1]+low_bound #wave number for each segment
+                
+                x=ITER[j][2] #redefinition for sake of clarity
+                ITER[j][3]=  -2*a*(x**2)+sqrt(4*(a**2)*(x**4)+b*(c**2)*(x/h)-(d*(x**2)/(E*h))) #calculates y for each segment position
+                
+                y_prime_a=-4*a*x
+                y_prime_b=16*(a**2)*(x**3)+(b*(c**2)/h)-((2*d*x)/(E*h));
+                y_prime_c=2*sqrt(4*(a**2)*(x**4)+b*(c**2)*(x/h)-(d*(x**2)/(E*h)));
+                ITER[j][4]=y_prime_a+(y_prime_b/y_prime_c)
+                
+                if ITER[j][4] >= 0:
+                    ITER[j][5] = 1
+                else:
+                    ITER[j][5] = 0
+                
+                if j-1>0:
+                    if (ITER[j-1][5]==0 and ITER[j][5] == 1) or (ITER[j-1][5]== 1 and ITER[j][5] == 0):
+                        low_bound = ITER[j-1][2]
+                        up_bound = ITER[j][2]
+                        K_s = (ITER[j-1][2] + ITER[j][2])/2
+                        O_s = (ITER[j-1][3] + ITER[j][3])/2
+        d_l = math.sqrt(8*h/K_s) #calculates ligament diameter for long-wave case
+        d_d=(1e6)*1.88*d_l*(1+3*(mu_1/(rho_1*sigma*d_l)**(0.5)))**(1/6) #calculates droplet diameter in mictrons
+        print('The maximum wave number is: \n',round(K_s,3))
+        print('The maximum wave growth rate is: \n',round(O_s),3)
+        print('The break-up length for this spray is: \n', round(b_l,3), "mm");
+        print('The predicted droplet size for this spray is: \n', round(d_d,3), "microns")
+        
+        b_l=(12*V/O_s)*1000 #updates the break-up length for the next iteration        
